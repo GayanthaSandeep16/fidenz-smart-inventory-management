@@ -21,4 +21,12 @@ public interface SalesTransactionRepository extends JpaRepository<SalesTransacti
 
     List<SalesTransaction> findByStoreIdAndTransactionDateBetween(Long storeId, LocalDateTime startDate, LocalDateTime endDate);
 
+
+    @Query("SELECT st FROM SalesTransaction st WHERE st.store.id = :storeId AND st.transactionDate >= :startDate")
+    List<SalesTransaction> findRecentSalesByStore(@Param("storeId") Long storeId, @Param("startDate") LocalDateTime startDate);
+
+    @Query("SELECT SUM(st.totalAmount) FROM SalesTransaction st WHERE st.store.id = :storeId AND st.transactionDate " +
+            "BETWEEN :startDate AND :endDate")
+    Double getTotalRevenueByStoreAndDateRange(@Param("storeId") Long storeId, @Param("startDate")
+    LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 }
