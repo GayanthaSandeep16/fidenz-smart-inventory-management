@@ -1,5 +1,7 @@
 package com.example.fidenz.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -15,6 +17,7 @@ import java.util.List;
 @AllArgsConstructor
 @Entity
 @Table(name = "stores")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Store {
     
     @Id
@@ -46,12 +49,15 @@ public class Store {
     private LocalDateTime updatedAt;
     
     @OneToMany(mappedBy = "store", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonBackReference
     private List<Inventory> inventories;
     
     @OneToMany(mappedBy = "store", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonBackReference
     private List<SalesTransaction> salesTransactions;
     
     @OneToMany(mappedBy = "store", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonBackReference
     private List<ReorderRecommendation> reorderRecommendations;
     
     @PrePersist
