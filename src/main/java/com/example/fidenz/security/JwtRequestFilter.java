@@ -47,8 +47,11 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                 throw new RuntimeException("Unable to get JWT Token or JWT Token has expired");
             }
         } else {
-            log.warn("JWT Token does not begin with Bearer String");
-            throw new RuntimeException("JWT Token does not begin with Bearer String");
+            // No JWT token present - let the request continue to be handled by Spring Security
+            // This allows public endpoints (like /api/auth/login) to work without tokens
+            log.debug("No JWT token found in request");
+            chain.doFilter(request, response);
+            return;
         }
 
         // Once we get the token validate it.
@@ -67,6 +70,10 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                 // that the current user is authenticated. So it passes the
                 // Spring Security Configurations successfully.
                 SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
+                
+                // Debug logging
+                log.info("🔐 JWT Authentication successful for user: {}", username);
+                log.info("🔐 User authorities: {}", userDetails.getAuthorities());
             }
         }
         chain.doFilter(request, response);
