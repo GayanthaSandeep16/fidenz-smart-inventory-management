@@ -1,12 +1,18 @@
 package com.example.fidenz.entity;
 
-import javax.persistence.*;
-import javax.validation.constraints.NotNull;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
-@Table(name = "inventory", 
+@Table(name = "inventory",
        uniqueConstraints = @UniqueConstraint(columnNames = {"product_id", "store_id"}))
 public class Inventory {
     
@@ -45,29 +51,5 @@ public class Inventory {
         updatedAt = LocalDateTime.now();
     }
 
-    public Inventory() {}
 
-    public Inventory(Product product, Store store, Integer currentStock) {
-        this.product = product;
-        this.store = store;
-        this.currentStock = currentStock;
-    }
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public Product getProduct() { return product; }
-    public void setProduct(Product product) { this.product = product; }
-
-    public Store getStore() { return store; }
-    public void setStore(Store store) { this.store = store; }
-
-    public Integer getCurrentStock() { return currentStock; }
-    public void setCurrentStock(Integer currentStock) { this.currentStock = currentStock; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
