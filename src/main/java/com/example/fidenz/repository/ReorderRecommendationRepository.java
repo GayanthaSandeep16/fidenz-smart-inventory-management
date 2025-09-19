@@ -12,7 +12,7 @@ import java.util.Optional;
 @Repository
 public interface ReorderRecommendationRepository extends JpaRepository<ReorderRecommendation, Long> {
 
-    List<ReorderRecommendation> findByStoreIdAndIsProcessed(Long storeId, Boolean isProcessed);
+    List<ReorderRecommendation> findByStoreIdAndProcessed(Long storeId, Boolean processed);
     
     Optional<ReorderRecommendation> findByProductAndStore(Product product, Store store);
 }
