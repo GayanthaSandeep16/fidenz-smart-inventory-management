@@ -13,11 +13,7 @@ import java.util.List;
 @Repository
 public interface SalesTransactionRepository extends JpaRepository<SalesTransaction, Long> {
 
-    List<SalesTransaction> findByStore(Store store);
-
     List<SalesTransaction> findByStoreId(Long storeId);
-
-    List<SalesTransaction> findByTransactionDateBetween(LocalDateTime startDate, LocalDateTime endDate);
 
     List<SalesTransaction> findByStoreIdAndTransactionDateBetween(Long storeId, LocalDateTime startDate, LocalDateTime endDate);
 
