@@ -37,8 +37,6 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        log.info("🔧 SecurityConfig: Building SecurityFilterChain");
-        log.info("🔧 SecurityConfig: /api/inventory/** requires STORE_OPERATOR or STORE_MANAGER role");
         
         http.csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authz -> authz
@@ -47,7 +45,12 @@ public class SecurityConfig {
                                 new AntPathRequestMatcher("/v3/api-docs/**"),
                                 new AntPathRequestMatcher("/swagger-ui.html"),
                                 new AntPathRequestMatcher("/api-docs/**")).permitAll()
-                        .requestMatchers(new AntPathRequestMatcher("/api/inventory/**")).hasAnyRole("STORE_OPERATOR", "STORE_MANAGER")
+                        // API_CLIENT can push sales and get inventory data
+                        .requestMatchers(new AntPathRequestMatcher("/api/sales/transaction")).hasAnyRole("STORE_OPERATOR", "STORE_MANAGER", "API_CLIENT")
+                        .requestMatchers(new AntPathRequestMatcher("/api/inventory/**")).hasAnyRole("STORE_OPERATOR", "STORE_MANAGER", "API_CLIENT")
+                        // Only Store roles can access full sales history
+                        .requestMatchers(new AntPathRequestMatcher("/api/sales/**")).hasAnyRole("STORE_OPERATOR", "STORE_MANAGER")
+                        // Only Store Manager can access algorithms
                         .requestMatchers(new AntPathRequestMatcher("/api/algorithms/**")).hasRole("STORE_MANAGER")
                         .anyRequest().authenticated()
                 )
@@ -56,7 +59,6 @@ public class SecurityConfig {
         http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
 
         SecurityFilterChain filterChain = http.build();
-        log.info("🔧 SecurityConfig: SecurityFilterChain built successfully");
         return filterChain;
     }
 
