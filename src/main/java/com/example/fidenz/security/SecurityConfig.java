@@ -1,5 +1,7 @@
 package com.example.fidenz.security;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -19,6 +21,7 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
+    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
     private final JwtRequestFilter jwtRequestFilter;
 
 
@@ -34,6 +37,9 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        log.info("🔧 SecurityConfig: Building SecurityFilterChain");
+        log.info("🔧 SecurityConfig: /api/inventory/** requires STORE_OPERATOR or STORE_MANAGER role");
+        
         http.csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers(new AntPathRequestMatcher("/api/auth/**"),
@@ -41,7 +47,7 @@ public class SecurityConfig {
                                 new AntPathRequestMatcher("/v3/api-docs/**"),
                                 new AntPathRequestMatcher("/swagger-ui.html"),
                                 new AntPathRequestMatcher("/api-docs/**")).permitAll()
-                        .requestMatchers(new AntPathRequestMatcher("/api/inventory/**")).hasRole("STORE_OPERATOR")
+                        .requestMatchers(new AntPathRequestMatcher("/api/inventory/**")).hasAnyRole("STORE_OPERATOR", "STORE_MANAGER")
                         .requestMatchers(new AntPathRequestMatcher("/api/algorithms/**")).hasRole("STORE_MANAGER")
                         .anyRequest().authenticated()
                 )
@@ -49,7 +55,9 @@ public class SecurityConfig {
 
         http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
 
-        return http.build();
+        SecurityFilterChain filterChain = http.build();
+        log.info("🔧 SecurityConfig: SecurityFilterChain built successfully");
+        return filterChain;
     }
 
 
