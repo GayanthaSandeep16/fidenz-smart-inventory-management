@@ -2,10 +2,9 @@ package com.example.fidenz.service;
 
 import com.example.fidenz.entity.Inventory;
 import com.example.fidenz.entity.Store;
+import com.example.fidenz.exception.EntityNotFoundException;
 import com.example.fidenz.repository.InventoryRepository;
 import com.example.fidenz.repository.StoreRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -30,13 +29,17 @@ public class InventoryService {
 
     public List<Inventory> getInventoryByStore(Long storeId) {
         Store store = storeRepository.findById(storeId)
-                .orElseThrow(() -> new RuntimeException("Store not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Store", storeId));
         return inventoryRepository.findByStore(store);
     }
 
     public Inventory updateInventory(Long inventoryId, Integer newStock) {
+        if (newStock < 0) {
+            throw new IllegalArgumentException("Stock quantity cannot be negative");
+        }
+        
         Inventory inventory = inventoryRepository.findById(inventoryId)
-                .orElseThrow(() -> new RuntimeException("Inventory not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Inventory", inventoryId));
         
         inventory.setCurrentStock(newStock);
         return inventoryRepository.save(inventory);

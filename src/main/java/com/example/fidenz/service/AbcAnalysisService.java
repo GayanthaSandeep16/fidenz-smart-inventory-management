@@ -101,12 +101,13 @@ public class AbcAnalysisService {
             // Determine category
             String category = determineCategory(cumulativePercentage);
 
-            AbcAnalysisResult result = new AbcAnalysisResult();
-            result.setProduct(product);
-            result.setTotalRevenue(revenue);
-            result.setPercentageOfTotal(percentageOfTotal);
-            result.setCumulativePercentage(cumulativePercentage);
-            result.setCategory(category);
+                AbcAnalysisResult result = new AbcAnalysisResult(
+                product,
+                revenue,
+                percentageOfTotal,
+                cumulativePercentage,
+                category
+            );
 
             results.add(result);
         }
@@ -134,16 +135,16 @@ public class AbcAnalysisService {
         List<AbcAnalysisResult> results = performAbcAnalysis(storeId, days);
         
         return results.stream()
-                .collect(Collectors.groupingBy(AbcAnalysisResult::getCategory));
+                .collect(Collectors.groupingBy(AbcAnalysisResult::category));
     }
 
     public Map<String, Long> getAbcAnalysisSummary(Long storeId, int days) {
         List<AbcAnalysisResult> results = performAbcAnalysis(storeId, days);
         
         Map<String, Long> summary = new HashMap<>();
-        summary.put("A", results.stream().filter(r -> "A".equals(r.getCategory())).count());
-        summary.put("B", results.stream().filter(r -> "B".equals(r.getCategory())).count());
-        summary.put("C", results.stream().filter(r -> "C".equals(r.getCategory())).count());
+        summary.put("A", results.stream().filter(r -> "A".equals(r.category())).count());
+        summary.put("B", results.stream().filter(r -> "B".equals(r.category())).count());
+        summary.put("C", results.stream().filter(r -> "C".equals(r.category())).count());
         
         return summary;
     }
