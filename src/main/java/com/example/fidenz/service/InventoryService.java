@@ -28,9 +28,12 @@ public class InventoryService {
     }
 
     public List<Inventory> getInventoryByStore(Long storeId) {
-        Store store = storeRepository.findById(storeId)
+        // Validate store exists
+        storeRepository.findById(storeId)
                 .orElseThrow(() -> new EntityNotFoundException("Store", storeId));
-        return inventoryRepository.findByStore(store);
+        
+        // Use JOIN FETCH for better performance with LAZY loading
+        return inventoryRepository.findByStoreIdWithDetails(storeId);
     }
 
     public Inventory updateInventory(Long inventoryId, Integer newStock) {
@@ -38,7 +41,8 @@ public class InventoryService {
             throw new IllegalArgumentException("Stock quantity cannot be negative");
         }
         
-        Inventory inventory = inventoryRepository.findById(inventoryId)
+        // Use JOIN FETCH to load related entities if needed for response
+        Inventory inventory = inventoryRepository.findByIdWithDetails(inventoryId)
                 .orElseThrow(() -> new EntityNotFoundException("Inventory", inventoryId));
         
         inventory.setCurrentStock(newStock);
@@ -46,6 +50,7 @@ public class InventoryService {
     }
 
     public List<Inventory> getAllInventories() {
-        return inventoryRepository.findAll();
+        // Use JOIN FETCH for better performance with LAZY loading
+        return inventoryRepository.findAllWithDetails();
     }
 }
