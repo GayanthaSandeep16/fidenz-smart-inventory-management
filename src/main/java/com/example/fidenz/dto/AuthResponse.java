@@ -1,17 +1,7 @@
 package com.example.fidenz.dto;
 
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class AuthResponse {
-    
-    private String token;
-    private String username;
-    private String role;
-
-}
+public record AuthResponse(
+    String token,
+    String username,
+    String role
+) {}
