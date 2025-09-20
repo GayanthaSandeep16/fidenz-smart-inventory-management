@@ -1,6 +1,7 @@
 package com.example.fidenz.service;
 
 import com.example.fidenz.entity.*;
+import com.example.fidenz.exception.EntityNotFoundException;
 import com.example.fidenz.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +46,7 @@ public class ReorderService {
         log.info("Generating reorder suggestions for store: {}", storeId);
         
         Store store = storeRepository.findById(storeId)
-                .orElseThrow(() -> new RuntimeException("Store not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Store", storeId));
 
         List<Inventory> inventories = inventoryRepository.findByStore(store);
         List<ReorderRecommendation> recommendations = new ArrayList<>();
@@ -67,8 +68,8 @@ public class ReorderService {
                         existingRec.setAdjustedSales(recommendation.getAdjustedSales());
                         existingRec.setSafetyStock(recommendation.getSafetyStock());
                         existingRec.setReorderPoint(recommendation.getReorderPoint());
-                        existingRec.setRecommendedQty(recommendation.getRecommendedQty());
-                        existingRec.setIsProcessed(false);
+                        existingRec.setRecommendedQuantity(recommendation.getRecommendedQuantity());
+                        existingRec.setProcessed(false);
                         reorderRecommendationRepository.save(existingRec);
                         recommendations.add(existingRec);
                     } else {
@@ -170,22 +171,22 @@ public class ReorderService {
         recommendation.setAdjustedSales(adjustedSales);
         recommendation.setSafetyStock(safetyStock);
         recommendation.setReorderPoint(reorderPoint);
-        recommendation.setRecommendedQty(reorderQty);
-        recommendation.setIsProcessed(false);
+        recommendation.setRecommendedQuantity(reorderQty);
+        recommendation.setProcessed(false);
 
         return recommendation;
     }
 
     public List<ReorderRecommendation> getReorderRecommendations(Long storeId) {
-        return reorderRecommendationRepository.findByStoreIdAndIsProcessed(storeId, false);
+        return reorderRecommendationRepository.findByStoreIdAndProcessed(storeId, false);
     }
 
     @Transactional
     public void markRecommendationAsProcessed(Long recommendationId) {
         ReorderRecommendation recommendation = reorderRecommendationRepository.findById(recommendationId)
-                .orElseThrow(() -> new RuntimeException("Recommendation not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Recommendation not found"));
         
-        recommendation.setIsProcessed(true);
+        recommendation.setProcessed(true);
         reorderRecommendationRepository.save(recommendation);
     }
 }

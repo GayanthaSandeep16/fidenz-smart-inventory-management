@@ -5,6 +5,7 @@ import com.example.fidenz.entity.Inventory;
 import com.example.fidenz.entity.Product;
 import com.example.fidenz.entity.SalesTransaction;
 import com.example.fidenz.entity.Store;
+import com.example.fidenz.exception.EntityNotFoundException;
 import com.example.fidenz.repository.InventoryRepository;
 import com.example.fidenz.repository.ProductRepository;
 import com.example.fidenz.repository.SalesTransactionRepository;
@@ -39,29 +40,29 @@ public class SalesService {
     @Transactional
     public SalesTransaction recordSale(SalesTransactionRequest request) {
         // Validate product and store exist
-        Product product = productRepository.findById(request.getProductId())
-                .orElseThrow(() -> new RuntimeException("Product not found"));
+        Product product = productRepository.findById(request.productId())
+                .orElseThrow(() -> new EntityNotFoundException("Product", request.productId()));
         
-        Store store = storeRepository.findById(request.getStoreId())
-                .orElseThrow(() -> new RuntimeException("Store not found"));
+        Store store = storeRepository.findById(request.storeId())
+                .orElseThrow(() -> new EntityNotFoundException("Store", request.storeId()));
 
         // Check inventory availability
         Inventory inventory = inventoryRepository.findByProductAndStore(product, store)
-                .orElseThrow(() -> new RuntimeException("Inventory not found for this product and store"));
+                .orElseThrow(() -> new EntityNotFoundException("Inventory not found for this product and store"));
 
-        if (inventory.getCurrentStock() < request.getQuantity()) {
-            throw new RuntimeException("Insufficient stock. Available: " + inventory.getCurrentStock());
+        if (inventory.getCurrentStock() < request.quantity()) {
+            throw new IllegalArgumentException("Insufficient stock. Available: " + inventory.getCurrentStock());
         }
 
         // Calculate total amount
-        BigDecimal totalAmount = request.getUnitPrice().multiply(BigDecimal.valueOf(request.getQuantity()));
+        BigDecimal totalAmount = request.unitPrice().multiply(BigDecimal.valueOf(request.quantity()));
 
         // Create sales transaction
         SalesTransaction transaction = new SalesTransaction();
         transaction.setProduct(product);
         transaction.setStore(store);
-        transaction.setQuantity(request.getQuantity());
-        transaction.setUnitPrice(request.getUnitPrice());
+        transaction.setQuantity(request.quantity());
+        transaction.setUnitPrice(request.unitPrice());
         transaction.setTotalAmount(totalAmount);
         transaction.setTransactionDate(LocalDateTime.now());
 
@@ -69,7 +70,7 @@ public class SalesService {
         SalesTransaction savedTransaction = salesTransactionRepository.save(transaction);
 
         // Update inventory
-        inventory.setCurrentStock(inventory.getCurrentStock() - request.getQuantity());
+        inventory.setCurrentStock(inventory.getCurrentStock() - request.quantity());
         inventoryRepository.save(inventory);
 
         return savedTransaction;
