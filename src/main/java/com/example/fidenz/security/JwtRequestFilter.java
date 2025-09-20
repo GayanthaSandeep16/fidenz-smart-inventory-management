@@ -43,8 +43,9 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             try {
                 username = jwtUtil.extractUsername(jwtToken);
             } catch (Exception e) {
-                log.error("Unable to get JWT Token or JWT Token has expired");
-                throw new RuntimeException("Unable to get JWT Token or JWT Token has expired");
+                log.error("Unable to get JWT Token or JWT Token has expired: {}", e.getMessage());
+                chain.doFilter(request, response);
+                return;
             }
         } else {
             // No JWT token present - let the request continue to be handled by Spring Security

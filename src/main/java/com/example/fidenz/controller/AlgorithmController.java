@@ -1,6 +1,8 @@
 package com.example.fidenz.controller;
 
 import com.example.fidenz.dto.AbcAnalysisResult;
+import com.example.fidenz.dto.ReorderRecommendationMapper;
+import com.example.fidenz.dto.ReorderRecommendationResponse;
 import com.example.fidenz.entity.ReorderRecommendation;
 import com.example.fidenz.service.AbcAnalysisService;
 import com.example.fidenz.service.ReorderService;
@@ -33,9 +35,10 @@ public class AlgorithmController {
                description = "Generate smart reorder recommendations for a specific store based on sales history and seasonality")
     @ApiResponse(responseCode = "200", description = "Reorder recommendations generated successfully")
     @ApiResponse(responseCode = "403", description = "Access denied - Store Manager role required")
-    public ResponseEntity<List<ReorderRecommendation>> generateReorderRecommendations(@PathVariable Long storeId) {
+    public ResponseEntity<List<ReorderRecommendationResponse>> generateReorderRecommendations(@PathVariable Long storeId) {
         List<ReorderRecommendation> recommendations = reorderService.generateReorderSuggestions(storeId);
-        return ResponseEntity.ok(recommendations);
+        List<ReorderRecommendationResponse> response = ReorderRecommendationMapper.toResponseList(recommendations);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/reorder-recommendations/{storeId}/pending")
@@ -44,9 +47,10 @@ public class AlgorithmController {
                description = "Retrieve pending reorder recommendations for a specific store")
     @ApiResponse(responseCode = "200", description = "Pending recommendations retrieved successfully")
     @ApiResponse(responseCode = "403", description = "Access denied - Store Manager role required")
-    public ResponseEntity<List<ReorderRecommendation>> getPendingReorderRecommendations(@PathVariable Long storeId) {
+    public ResponseEntity<List<ReorderRecommendationResponse>> getPendingReorderRecommendations(@PathVariable Long storeId) {
         List<ReorderRecommendation> recommendations = reorderService.getReorderRecommendations(storeId);
-        return ResponseEntity.ok(recommendations);
+        List<ReorderRecommendationResponse> response = ReorderRecommendationMapper.toResponseList(recommendations);
+        return ResponseEntity.ok(response);
     }
 
     @PutMapping("/reorder-recommendations/{recommendationId}/process")
