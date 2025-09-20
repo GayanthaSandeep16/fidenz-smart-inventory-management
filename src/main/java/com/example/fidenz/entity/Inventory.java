@@ -1,7 +1,6 @@
 package com.example.fidenz.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -16,7 +15,6 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "inventory",
        uniqueConstraints = @UniqueConstraint(columnNames = {"product_id", "store_id"}))
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Inventory {
     
     @Id
@@ -26,13 +24,12 @@ public class Inventory {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
     @NotNull
-    @JsonManagedReference
     private Product product;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "store_id", nullable = false)
     @NotNull
-    @JsonManagedReference
+
     private Store store;
     
     @Column(name = "current_stock", nullable = false)

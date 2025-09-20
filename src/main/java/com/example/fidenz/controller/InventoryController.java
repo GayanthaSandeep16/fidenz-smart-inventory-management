@@ -1,5 +1,7 @@
 package com.example.fidenz.controller;
 
+import com.example.fidenz.dto.InventoryMapper;
+import com.example.fidenz.dto.InventoryResponse;
 import com.example.fidenz.entity.Inventory;
 import com.example.fidenz.service.InventoryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,26 +26,29 @@ public class InventoryController {
     @GetMapping("/{storeId}")
     @Operation(summary = "Get inventory by store", description = "Retrieve inventory for a specific store")
     @ApiResponse(responseCode = "200", description = "Inventory retrieved successfully")
-    public ResponseEntity<List<Inventory>> getInventoryByStore(@PathVariable Long storeId) {
+    public ResponseEntity<List<InventoryResponse>> getInventoryByStore(@PathVariable Long storeId) {
         List<Inventory> inventory = inventoryService.getInventoryByStore(storeId);
-        return ResponseEntity.ok(inventory);
+        List<InventoryResponse> response = InventoryMapper.toResponseList(inventory);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping
     @Operation(summary = "Get all inventories", description = "Retrieve all inventory records")
     @ApiResponse(responseCode = "200", description = "All inventories retrieved successfully")
-    public ResponseEntity<List<Inventory>> getAllInventories() {
+    public ResponseEntity<List<InventoryResponse>> getAllInventories() {
         List<Inventory> inventories = inventoryService.getAllInventories();
-        return ResponseEntity.ok(inventories);
+        List<InventoryResponse> response = InventoryMapper.toResponseList(inventories);
+        return ResponseEntity.ok(response);
     }
 
     @PutMapping("/{inventoryId}")
     @Operation(summary = "Update inventory stock", description = "Update stock quantity for a specific inventory item")
     @ApiResponse(responseCode = "200", description = "Inventory updated successfully")
-    public ResponseEntity<Inventory> updateInventory(
+    public ResponseEntity<InventoryResponse> updateInventory(
             @PathVariable Long inventoryId, 
             @RequestParam Integer newStock) {
         Inventory inventory = inventoryService.updateInventory(inventoryId, newStock);
-        return ResponseEntity.ok(inventory);
+        InventoryResponse response = InventoryMapper.toResponse(inventory);
+        return ResponseEntity.ok(response);
     }
 }
