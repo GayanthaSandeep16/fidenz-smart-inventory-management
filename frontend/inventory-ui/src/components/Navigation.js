@@ -6,7 +6,7 @@ const Navigation = ({ user, onLogout }) => {
     <Navbar bg="primary" variant="dark" expand="lg">
       <Container>
         <Navbar.Brand>
-          🏪 Inventory Management System
+          Inventory Management System
         </Navbar.Brand>
         
         <Navbar.Toggle aria-controls="basic-navbar-nav" />

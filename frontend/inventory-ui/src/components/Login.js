@@ -33,7 +33,7 @@ const Login = ({ onLogin }) => {
         <Col md={6} lg={4}>
           <Card className="shadow">
             <Card.Header className="bg-primary text-white text-center">
-              <h4>🏪 Inventory Management</h4>
+              <h4> Inventory Management</h4>
               <p className="mb-0">Please sign in to continue</p>
             </Card.Header>
             <Card.Body>
