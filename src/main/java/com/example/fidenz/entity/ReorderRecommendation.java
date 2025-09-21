@@ -1,7 +1,6 @@
 package com.example.fidenz.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -26,13 +25,13 @@ public class ReorderRecommendation {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
     @NotNull
-    @JsonManagedReference
+    @JsonIgnoreProperties({"inventories", "salesTransactions", "reorderRecommendations"})
     private Product product;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "store_id", nullable = false)
     @NotNull
-    @JsonManagedReference
+    @JsonIgnoreProperties({"inventories", "salesTransactions", "reorderRecommendations"})
     private Store store;
     
     @Column(name = "current_stock", nullable = false)
@@ -48,6 +47,9 @@ public class ReorderRecommendation {
     @Column(name = "adjusted_sales", precision = 10, scale = 2)
     private BigDecimal adjustedSales;
     
+    @Column(name = "lead_time")
+    private Integer leadTime;
+    
     @Column(name = "safety_stock", nullable = false)
     @NotNull
     private Integer safetyStock;
@@ -58,10 +60,10 @@ public class ReorderRecommendation {
     
     @Column(name = "recommended_qty", nullable = false)
     @NotNull
-    private Integer recommendedQty;
+    private Integer recommendedQuantity;
     
     @Column(name = "is_processed", nullable = false)
-    private Boolean isProcessed = false;
+    private Boolean processed = false;
     
     @Column(name = "created_at")
     private LocalDateTime createdAt;

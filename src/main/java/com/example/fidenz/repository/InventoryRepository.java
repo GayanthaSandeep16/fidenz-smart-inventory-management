@@ -13,8 +13,6 @@ import java.util.Optional;
 
 @Repository
 public interface InventoryRepository extends JpaRepository<Inventory, Long> {
-    
-    List<Inventory>  findByStore(Store store);
 
     Optional<Inventory> findByProductAndStore(Product product, Store store);
     

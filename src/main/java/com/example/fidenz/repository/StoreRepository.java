@@ -9,5 +9,6 @@ import java.util.List;
 @Repository
 public interface StoreRepository extends JpaRepository<Store, Long> {
 
-    List<Store> findByManagerName(String managerName);
+
+
 }

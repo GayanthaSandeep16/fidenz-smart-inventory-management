@@ -48,7 +48,7 @@ public class ReorderService {
         Store store = storeRepository.findById(storeId)
                 .orElseThrow(() -> new EntityNotFoundException("Store", storeId));
 
-        List<Inventory> inventories = inventoryRepository.findByStore(store);
+        List<Inventory> inventories = inventoryRepository.findByStoreIdWithDetails(storeId);
         List<ReorderRecommendation> recommendations = new ArrayList<>();
 
         for (Inventory inventory : inventories) {
@@ -178,7 +178,8 @@ public class ReorderService {
     }
 
     public List<ReorderRecommendation> getReorderRecommendations(Long storeId) {
-        return reorderRecommendationRepository.findByStoreIdAndProcessed(storeId, false);
+        // Use JOIN FETCH for better performance with LAZY loading
+        return reorderRecommendationRepository.findByStoreIdAndProcessedWithDetails(storeId, false);
     }
 
     @Transactional
