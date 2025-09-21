@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Table, Card, Button, Alert, Spinner, Form, Row, Col } from 'react-bootstrap';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { Table, Card, Alert, Spinner, Form, Row, Col } from 'react-bootstrap';
 import axios from 'axios';
 
-const InventoryList = ({ token, axiosConfig }) => {
+const InventoryList = forwardRef(({ token, axiosConfig }, ref) => {
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -11,6 +11,13 @@ const InventoryList = ({ token, axiosConfig }) => {
   useEffect(() => {
     fetchInventory();
   }, [selectedStore]);
+
+  // Expose refreshInventory function to parent component
+  useImperativeHandle(ref, () => ({
+    refreshInventory: () => {
+      fetchInventory();
+    }
+  }));
 
   const fetchInventory = async () => {
     setLoading(true);
@@ -66,11 +73,6 @@ const InventoryList = ({ token, axiosConfig }) => {
           </div>
         ) : (
           <>
-            <div className="mb-3">
-              <Button variant="primary" onClick={fetchInventory}>
-                🔄 Refresh
-              </Button>
-            </div>
             
             <Table striped bordered hover responsive>
               <thead>
@@ -122,6 +124,6 @@ const InventoryList = ({ token, axiosConfig }) => {
       </Card.Body>
     </Card>
   );
-};
+});
 
 export default InventoryList;
