@@ -32,15 +32,15 @@ public class Store {
     @NotBlank
     @Size(max = 200)
     @Column(nullable = false)
-    private String address;
+    private String location;
     
     @NotBlank
     @Size(max = 20)
     @Column(nullable = false)
-    private String phone;
+    private String contactNumber;
     
     @Size(max = 100)
-    private String managerName;
+    private String email;
     
     @Column(name = "created_at")
     private LocalDateTime createdAt;
