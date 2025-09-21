@@ -72,11 +72,6 @@ const Login = ({ onLogin }) => {
                 </Button>
               </Form>
             </Card.Body>
-            <Card.Footer className="text-muted text-center">
-              <small>
-                Demo: Try username: <strong>admin</strong>, password: <strong>admin123</strong>
-              </small>
-            </Card.Footer>
           </Card>
         </Col>
       </Row>
