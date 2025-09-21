@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
@@ -18,6 +19,7 @@ import java.util.List;
 @Entity
 @Table(name = "products")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@ToString(exclude = {"inventories", "salesTransactions", "reorderRecommendations"})
 public class Product {
     
     @Id

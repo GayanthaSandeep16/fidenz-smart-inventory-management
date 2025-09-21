@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.time.LocalDateTime;
 
@@ -15,6 +16,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "inventory",
        uniqueConstraints = @UniqueConstraint(columnNames = {"product_id", "store_id"}))
+@ToString(exclude = {"product", "store"})
 public class Inventory {
     
     @Id
