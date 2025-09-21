@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { Tab, Tabs } from 'react-bootstrap';
 import InventoryList from './InventoryList';
 import SalesForm from './SalesForm';
@@ -7,6 +7,8 @@ import ReorderRecommendations from './ReorderRecommendations';
 import axios from 'axios';
 
 const Dashboard = ({ user, token }) => {
+  const [activeTab, setActiveTab] = useState('inventory');
+  const inventoryListRef = useRef(null);
 
   const axiosConfig = {
     headers: {
@@ -15,13 +17,36 @@ const Dashboard = ({ user, token }) => {
     }
   };
 
+  const handleTabSelect = (eventKey) => {
+    setActiveTab(eventKey);
+    
+    // Trigger refresh when inventory tab is selected
+    if (eventKey === 'inventory' && inventoryListRef.current) {
+      // Small delay to ensure the component is fully mounted
+      setTimeout(() => {
+        if (inventoryListRef.current) {
+          inventoryListRef.current.refreshInventory();
+        }
+      }, 100);
+    }
+  };
+
   return (
     <div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultActiveKey="inventory" id="dashboard-tabs" className="mb-3">
+      <Tabs 
+        activeKey={activeTab} 
+        onSelect={handleTabSelect} 
+        id="dashboard-tabs" 
+        className="mb-3"
+      >
         <Tab eventKey="inventory" title="📦 Inventory">
-          <InventoryList token={token} axiosConfig={axiosConfig} />
+          <InventoryList 
+            ref={inventoryListRef}
+            token={token} 
+            axiosConfig={axiosConfig} 
+          />
         </Tab>
 
         <Tab eventKey="sales" title="💰 Record Sale">
