@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Form, Button, Alert, Row, Col } from 'react-bootstrap';
 import axios from 'axios';
 
@@ -9,9 +9,28 @@ const SalesForm = ({ token, axiosConfig }) => {
     quantity: '',
     unitPrice: ''
   });
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(true);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    setLoadingProducts(true);
+    try {
+      const response = await axios.get('/api/products', axiosConfig);
+      setProducts(response.data);
+    } catch (err) {
+      setError('Failed to load products');
+      console.error('Error fetching products:', err);
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({
@@ -63,22 +82,29 @@ const SalesForm = ({ token, axiosConfig }) => {
       <Card.Body>
         {error && <Alert variant="danger">{error}</Alert>}
         {success && <Alert variant="success">{success}</Alert>}
+        {loadingProducts && <Alert variant="info">Loading products...</Alert>}
         
         <Form onSubmit={handleSubmit}>
           <Row>
             <Col md={6}>
               <Form.Group className="mb-3">
-                <Form.Label>Product ID</Form.Label>
-                <Form.Control
-                  type="number"
+                <Form.Label>Product</Form.Label>
+                <Form.Select
                   name="productId"
                   value={formData.productId}
                   onChange={handleChange}
-                  placeholder="Enter product ID"
+                  disabled={loadingProducts}
                   required
-                />
+                >
+                  <option value="">Select a product...</option>
+                  {products.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name} - {product.category}
+                    </option>
+                  ))}
+                </Form.Select>
                 <Form.Text className="text-muted">
-                  Check inventory tab for product IDs
+                  Choose a product from the dropdown
                 </Form.Text>
               </Form.Group>
             </Col>
