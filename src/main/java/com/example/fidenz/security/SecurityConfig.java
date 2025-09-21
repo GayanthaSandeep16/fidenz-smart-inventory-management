@@ -47,6 +47,7 @@ public class SecurityConfig {
                                 new AntPathRequestMatcher("/api-docs/**")).permitAll()
                         // API_CLIENT can push sales and get inventory data
                         .requestMatchers(new AntPathRequestMatcher("/api/sales/transaction")).hasAnyRole("STORE_OPERATOR", "STORE_MANAGER", "API_CLIENT")
+                        .requestMatchers(new AntPathRequestMatcher("/api/products")).hasAnyRole("STORE_OPERATOR", "STORE_MANAGER", "API_CLIENT")
                         .requestMatchers(new AntPathRequestMatcher("/api/inventory/**")).hasAnyRole("STORE_OPERATOR", "STORE_MANAGER", "API_CLIENT")
                         // Only Store roles can access full sales history
                         .requestMatchers(new AntPathRequestMatcher("/api/sales/**")).hasAnyRole("STORE_OPERATOR", "STORE_MANAGER")
