@@ -53,6 +53,9 @@ public class ReorderService {
 
         for (Inventory inventory : inventories) {
             try {
+                log.debug("Processing inventory for product: {} (ID: {}), current stock: {}", 
+                         inventory.getProduct().getName(), inventory.getProduct().getId(), inventory.getCurrentStock());
+                
                 ReorderRecommendation recommendation = calculateReorderRecommendation(inventory);
                 if (recommendation != null) {
                     // Check if recommendation already exists
@@ -105,6 +108,16 @@ public class ReorderService {
         if (sales.isEmpty()) {
             log.debug("No sales data found for product {} in store {} for the last 30 days", 
                      product.getName(), store.getId());
+            // create a basic recommendation based on minimum stock requirements
+            Integer currentStock = inventory.getCurrentStock();
+            Integer minStock = product.getMinStorageQty();
+            
+            if (currentStock == 0 || (minStock != null && currentStock <= minStock)) {
+                log.info("Creating basic reorder recommendation for low-stock product {} in store {} (currentStock: {}, minStock: {})", 
+                         product.getName(), store.getId(), currentStock, minStock);
+                return createBasicReorderRecommendation(inventory);
+            }
+            
             return null;
         }
 
@@ -115,7 +128,8 @@ public class ReorderService {
         
         BigDecimal averageDailySales = totalQuantity.divide(BigDecimal.valueOf(30), 2, RoundingMode.HALF_UP);
 
-        // Calculate Seasonality Factor
+        // Calculate Seasonality Factor based on weekday vs weekend sales patterns
+        // SeasonalityFactor = (WeekdayCount × 0.8 + WeekendCount × 1.4) / 7
         long weekdayCount = sales.stream()
                 .mapToLong(transaction -> {
                     DayOfWeek dayOfWeek = transaction.getTransactionDate().getDayOfWeek();
@@ -123,9 +137,20 @@ public class ReorderService {
                 })
                 .sum();
         
-        long weekendCount = 30 - weekdayCount;
-        BigDecimal seasonalityFactor = BigDecimal.valueOf(weekdayCount)
-                .divide(BigDecimal.valueOf(30), 2, RoundingMode.HALF_UP);
+        long weekendCount = sales.size() - weekdayCount;
+        
+        // Apply the seasonality formula: (WeekdayCount × 0.8 + WeekendCount × 1.4) / 7
+        BigDecimal weekdayFactor = BigDecimal.valueOf(weekdayCount).multiply(BigDecimal.valueOf(0.8));
+        BigDecimal weekendFactor = BigDecimal.valueOf(weekendCount).multiply(BigDecimal.valueOf(1.4));
+        BigDecimal seasonalityFactor = weekdayFactor.add(weekendFactor).divide(BigDecimal.valueOf(7), 2, RoundingMode.HALF_UP);
+        
+        // Ensure seasonality factor is at least 0.1 to avoid zero calculations
+        if (seasonalityFactor.compareTo(BigDecimal.valueOf(0.1)) < 0) {
+            seasonalityFactor = BigDecimal.valueOf(0.1);
+        }
+        
+        log.debug("Seasonality calculation for {}: weekdayCount={}, weekendCount={}, seasonalityFactor={}", 
+                 product.getName(), weekdayCount, weekendCount, seasonalityFactor);
 
         // Calculate Adjusted Sales
         BigDecimal adjustedSales = averageDailySales.multiply(seasonalityFactor);
@@ -140,9 +165,21 @@ public class ReorderService {
         Integer currentStock = inventory.getCurrentStock();
         Integer reorderQty = reorderPoint - currentStock;
 
+        log.debug("Reorder calculation for {}: avgDailySales={}, seasonalityFactor={}, adjustedSales={}, safetyStock={}, reorderPoint={}, currentStock={}, reorderQty={}", 
+                 product.getName(), averageDailySales, seasonalityFactor, adjustedSales, safetyStock, reorderPoint, currentStock, reorderQty);
+
         if (reorderQty <= 0) {
-            log.debug("No reorder needed for product {} in store {}. Current stock: {}, Reorder point: {}", 
+            log.debug("Standard reorder calculation shows no need for product {} in store {}. Current stock: {}, Reorder point: {}", 
                      product.getName(), store.getId(), currentStock, reorderPoint);
+            
+            // Check if this is a low-stock situation that still needs attention
+            Integer minStock = product.getMinStorageQty();
+            if (currentStock <= 5 || (minStock != null && currentStock <= minStock)) {
+                log.info("Low stock detected for product {} in store {} (currentStock: {}, minStock: {}). Creating basic recommendation.", 
+                         product.getName(), store.getId(), currentStock, minStock);
+                return createBasicReorderRecommendation(inventory);
+            }
+            
             return null;
         }
 
@@ -177,8 +214,56 @@ public class ReorderService {
         return recommendation;
     }
 
+    /**
+     * Create a basic reorder recommendation for items with no recent sales data
+     * but are critically low on stock (out of stock or below minimum threshold).
+     */
+    private ReorderRecommendation createBasicReorderRecommendation(Inventory inventory) {
+        Product product = inventory.getProduct();
+        Store store = inventory.getStore();
+        Integer currentStock = inventory.getCurrentStock();
+        
+        // Use minimum stock as baseline, or default to 10 if not set
+        Integer minStock = product.getMinStorageQty() != null ? product.getMinStorageQty() : 10;
+        
+        // Basic recommendation: order enough to reach 50% of max storage or 3x min stock, whichever is smaller
+        Integer maxStock = product.getMaxStorageQty() != null ? product.getMaxStorageQty() : 100;
+        Integer targetStock = Math.min(maxStock / 2, minStock * 3);
+        Integer reorderQty = Math.max(targetStock - currentStock, minStock);
+        
+        // Round up to nearest 5 for basic recommendations
+        reorderQty = ((reorderQty + 4) / 5) * 5;
+        
+        // Ensure we don't exceed max storage
+        if (product.getMaxStorageQty() != null) {
+            int maxAdditionalStock = product.getMaxStorageQty() - currentStock;
+            reorderQty = Math.min(reorderQty, maxAdditionalStock);
+        }
+        
+        if (reorderQty <= 0) {
+            return null;
+        }
+        
+        // Create basic recommendation with default values
+        ReorderRecommendation recommendation = new ReorderRecommendation();
+        recommendation.setProduct(product);
+        recommendation.setStore(store);
+        recommendation.setCurrentStock(currentStock);
+        recommendation.setAverageDailySales(BigDecimal.ONE);
+        recommendation.setSeasonalityFactor(BigDecimal.ONE);
+        recommendation.setAdjustedSales(BigDecimal.ONE);
+        recommendation.setSafetyStock(minStock); // Use min stock as safety stock
+        recommendation.setReorderPoint(minStock * 2); // Simple reorder point
+        recommendation.setRecommendedQuantity(reorderQty);
+        recommendation.setProcessed(false);
+        
+        log.info("Created basic reorder recommendation for {} in store {}: {} units", 
+                 product.getName(), store.getId(), reorderQty);
+        
+        return recommendation;
+    }
+
     public List<ReorderRecommendation> getReorderRecommendations(Long storeId) {
-        // Use JOIN FETCH for better performance with LAZY loading
         return reorderRecommendationRepository.findByStoreIdAndProcessedWithDetails(storeId, false);
     }
 
