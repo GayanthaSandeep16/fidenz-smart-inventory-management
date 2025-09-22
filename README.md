@@ -109,6 +109,8 @@ View all APIs: http://localhost:8080/swagger-ui.html
 ## Frontend (React)
 
 - Stack: React + react-scripts, Axios, Bootstrap
+- Go to: `cd frontend/inventory-ui`
+- Install deps: `npm install`
 - Dev server: `npm start` (proxy to backend at `http://localhost:8080`)
 - Auth: Stores JWT in localStorage; sends `Authorization: Bearer <token>`
 
