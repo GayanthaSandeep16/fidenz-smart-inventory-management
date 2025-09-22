@@ -117,6 +117,68 @@ class AbcAnalysisTest {
         }
     }
 
+    @Test
+    void aggregateRevenueByProduct_shouldSumByProduct() {
+        // Given
+        List<SalesTransaction> transactions = createTestTransactions(3);
+        transactions.get(0).setTotalAmount(new BigDecimal("10.00"));
+        transactions.get(1).setTotalAmount(new BigDecimal("15.50"));
+        transactions.get(2).setTotalAmount(new BigDecimal("4.50"));
+
+        // When
+        AbcAnalysisService svc = abcAnalysisService; // use injected instance
+        var map = svc.aggregateRevenueByProduct(transactions);
+
+        // Then
+        assertNotNull(map);
+        assertEquals(new BigDecimal("30.00"), map.get(testProduct));
+    }
+
+    @Test
+    void calculateGrandTotal_shouldSumAllValues() {
+        // Given
+        AbcAnalysisService svc = abcAnalysisService;
+        var map = new java.util.HashMap<Product, BigDecimal>();
+        map.put(testProduct, new BigDecimal("12.34"));
+
+        // When
+        BigDecimal total = svc.calculateGrandTotal(map);
+
+        // Then
+        assertEquals(new BigDecimal("12.34"), total);
+    }
+
+    @Test
+    void sortByRevenueDescending_shouldOrderByValue() {
+        // Given
+        AbcAnalysisService svc = abcAnalysisService;
+        var p2 = new Product(); p2.setId(2L); p2.setName("P2");
+        var map = new java.util.HashMap<Product, BigDecimal>();
+        map.put(testProduct, new BigDecimal("5"));
+        map.put(p2, new BigDecimal("10"));
+
+        // When
+        var sorted = svc.sortByRevenueDescending(map);
+
+        // Then
+        assertEquals(p2, sorted.get(0).getKey());
+        assertEquals(testProduct, sorted.get(1).getKey());
+    }
+
+    @Test
+    void percentage_handlesZeroDenominator() {
+        AbcAnalysisService svc = abcAnalysisService;
+        assertEquals(BigDecimal.ZERO, svc.percentage(new BigDecimal("10"), BigDecimal.ZERO));
+    }
+
+    @Test
+    void determineCategory_thresholds() {
+        AbcAnalysisService svc = abcAnalysisService;
+        assertEquals("A", svc.determineCategory(AbcAnalysisService.CATEGORY_A_THRESHOLD));
+        assertEquals("B", svc.determineCategory(new BigDecimal("90")));
+        assertEquals("C", svc.determineCategory(AbcAnalysisService.CATEGORY_B_THRESHOLD.add(new BigDecimal("1"))));
+    }
+
     // Helper method to create test data
     private List<SalesTransaction> createTestTransactions(int count) {
         List<SalesTransaction> transactions = new ArrayList<>();

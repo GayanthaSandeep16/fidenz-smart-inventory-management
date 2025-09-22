@@ -22,6 +22,12 @@ public class AbcAnalysisService {
 
     private static final Logger log = LoggerFactory.getLogger(AbcAnalysisService.class);
 
+    static final int PERCENT_SCALE = 4;
+    static final RoundingMode ROUNDING_MODE = RoundingMode.HALF_UP;
+    static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100);
+    static final BigDecimal CATEGORY_A_THRESHOLD = BigDecimal.valueOf(80);
+    static final BigDecimal CATEGORY_B_THRESHOLD = BigDecimal.valueOf(95);
+
     private final SalesTransactionRepository salesTransactionRepository;
     private final StoreRepository storeRepository;
 
@@ -55,63 +61,18 @@ public class AbcAnalysisService {
             return Collections.emptyList();
         }
 
-        // Calculate total revenue for each product
-        Map<Product, BigDecimal> productRevenue = sales.stream()
-                .collect(Collectors.groupingBy(
-                        SalesTransaction::getProduct,
-                        Collectors.reducing(
-                                BigDecimal.ZERO,
-                                transaction -> transaction.getTotalAmount(),
-                                BigDecimal::add
-                        )
-                ));
+        Map<Product, BigDecimal> productRevenue = aggregateRevenueByProduct(sales);
 
-        // Calculate grand total revenue
-        BigDecimal grandTotal = productRevenue.values().stream()
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal grandTotal = calculateGrandTotal(productRevenue);
 
         if (grandTotal.compareTo(BigDecimal.ZERO) == 0) {
             log.warn("No revenue found for store {} in the last {} days", storeId, days);
             return Collections.emptyList();
         }
 
-        // Sort products by revenue in descending order
-        List<Map.Entry<Product, BigDecimal>> sortedProducts = productRevenue.entrySet().stream()
-                .sorted(Map.Entry.<Product, BigDecimal>comparingByValue().reversed())
-                .collect(Collectors.toList());
+        List<Map.Entry<Product, BigDecimal>> sortedProducts = sortByRevenueDescending(productRevenue);
 
-        // Calculate ABC categories
-        List<AbcAnalysisResult> results = new ArrayList<>();
-        BigDecimal cumulativeRevenue = BigDecimal.ZERO;
-
-        for (Map.Entry<Product, BigDecimal> entry : sortedProducts) {
-            Product product = entry.getKey();
-            BigDecimal revenue = entry.getValue();
-            
-            // Calculate percentage of total revenue
-            BigDecimal percentageOfTotal = revenue
-                    .divide(grandTotal, 4, RoundingMode.HALF_UP)
-                    .multiply(BigDecimal.valueOf(100));
-
-            // Calculate cumulative percentage
-            cumulativeRevenue = cumulativeRevenue.add(revenue);
-            BigDecimal cumulativePercentage = cumulativeRevenue
-                    .divide(grandTotal, 4, RoundingMode.HALF_UP)
-                    .multiply(BigDecimal.valueOf(100));
-
-            // Determine category
-            String category = determineCategory(cumulativePercentage);
-
-                AbcAnalysisResult result = new AbcAnalysisResult(
-                product,
-                revenue,
-                percentageOfTotal,
-                cumulativePercentage,
-                category
-            );
-
-            results.add(result);
-        }
+        List<AbcAnalysisResult> results = buildResults(sortedProducts, grandTotal);
 
         log.info("ABC analysis completed for store: {}. Found {} products", storeId, results.size());
         return results;
@@ -122,14 +83,86 @@ public class AbcAnalysisService {
      * @param cumulativePercentage
      * @return
      */
-    private String determineCategory(BigDecimal cumulativePercentage) {
-        if (cumulativePercentage.compareTo(BigDecimal.valueOf(80)) <= 0) {
+    String determineCategory(BigDecimal cumulativePercentage) {
+        if (cumulativePercentage.compareTo(CATEGORY_A_THRESHOLD) <= 0) {
             return "A";
-        } else if (cumulativePercentage.compareTo(BigDecimal.valueOf(95)) <= 0) {
+        } else if (cumulativePercentage.compareTo(CATEGORY_B_THRESHOLD) <= 0) {
             return "B";
         } else {
             return "C";
         }
+    }
+
+    // Aggregate total revenue per product using a simple loop
+    Map<Product, BigDecimal> aggregateRevenueByProduct(List<SalesTransaction> sales) {
+        Map<Product, BigDecimal> revenueByProduct = new HashMap<>();
+        for (SalesTransaction transaction : sales) {
+            Product product = transaction.getProduct();
+            BigDecimal amount = transaction.getTotalAmount();
+            if (amount == null) {
+                amount = BigDecimal.ZERO;
+            }
+            revenueByProduct.merge(product, amount, BigDecimal::add);
+        }
+        return revenueByProduct;
+    }
+
+    // Calculate grand total revenue across all products
+    BigDecimal calculateGrandTotal(Map<Product, BigDecimal> productRevenue) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (BigDecimal value : productRevenue.values()) {
+            if (value != null) {
+                total = total.add(value);
+            }
+        }
+        return total;
+    }
+
+    // Sort entries by revenue descending
+    List<Map.Entry<Product, BigDecimal>> sortByRevenueDescending(Map<Product, BigDecimal> productRevenue) {
+        List<Map.Entry<Product, BigDecimal>> entries = new ArrayList<>(productRevenue.entrySet());
+        entries.sort(Map.Entry.<Product, BigDecimal>comparingByValue(Comparator.nullsFirst(Comparator.naturalOrder())).reversed());
+        return entries;
+    }
+
+    // Build analysis results with cumulative and percentage calculations
+    List<AbcAnalysisResult> buildResults(List<Map.Entry<Product, BigDecimal>> sortedProducts, BigDecimal grandTotal) {
+        List<AbcAnalysisResult> results = new ArrayList<>();
+        BigDecimal cumulativeRevenue = BigDecimal.ZERO;
+
+        for (Map.Entry<Product, BigDecimal> entry : sortedProducts) {
+            Product product = entry.getKey();
+            BigDecimal revenue = entry.getValue();
+            if (revenue == null) {
+                revenue = BigDecimal.ZERO;
+            }
+
+            BigDecimal percentageOfTotal = percentage(revenue, grandTotal);
+            cumulativeRevenue = cumulativeRevenue.add(revenue);
+            BigDecimal cumulativePercentage = percentage(cumulativeRevenue, grandTotal);
+
+            String category = determineCategory(cumulativePercentage);
+
+            AbcAnalysisResult result = new AbcAnalysisResult(
+                    product,
+                    revenue,
+                    percentageOfTotal,
+                    cumulativePercentage,
+                    category
+            );
+            results.add(result);
+        }
+        return results;
+    }
+
+    // Helper for percentage computation with fixed scale/rounding
+    BigDecimal percentage(BigDecimal numerator, BigDecimal denominator) {
+        if (denominator == null || denominator.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ZERO;
+        }
+        return numerator
+                .divide(denominator, PERCENT_SCALE, ROUNDING_MODE)
+                .multiply(ONE_HUNDRED);
     }
 
     public Map<String, List<AbcAnalysisResult>> getAbcAnalysisByCategory(Long storeId, int days) {

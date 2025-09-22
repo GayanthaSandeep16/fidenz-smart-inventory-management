@@ -22,6 +22,22 @@ public class ReorderService {
 
     private static final Logger log = LoggerFactory.getLogger(ReorderService.class);
 
+
+    static final int AVG_WINDOW_DAYS = 30;
+    static final int PERCENT_SCALE = 2;
+    static final RoundingMode ROUNDING_MODE = RoundingMode.HALF_UP;
+    static final BigDecimal WEEKDAY_MULTIPLIER = BigDecimal.valueOf(0.8);
+    static final BigDecimal WEEKEND_MULTIPLIER = BigDecimal.valueOf(1.4);
+    static final BigDecimal DAYS_IN_WEEK = BigDecimal.valueOf(7);
+    static final BigDecimal MIN_SEASONALITY = BigDecimal.valueOf(0.1);
+    static final int SAFETY_STOCK_DAYS = 2;
+    static final int LEAD_TIME_DAYS = 7;
+    static final int ROUND_TO_NEAREST_STANDARD = 10;
+    static final int BASIC_TARGET_DIVISOR = 2; // half of max
+    static final int BASIC_MULTIPLIER_MIN_STOCK = 3;
+    static final int BASIC_MIN_STOCK_FALLBACK = 10;
+    static final int BASIC_ROUND_TO_NEAREST = 5;
+
     private final InventoryRepository inventoryRepository;
     private final SalesTransactionRepository salesTransactionRepository;
     private final ReorderRecommendationRepository reorderRecommendationRepository;
@@ -97,7 +113,7 @@ public class ReorderService {
         
         // Get sales data for the last 30 days
         LocalDateTime endDate = LocalDateTime.now();
-        LocalDateTime startDate = endDate.minusDays(30);
+        LocalDateTime startDate = endDate.minusDays(AVG_WINDOW_DAYS);
         
         List<SalesTransaction> sales = salesTransactionRepository
                 .findByStoreIdAndTransactionDateBetween(store.getId(), startDate, endDate)
@@ -126,7 +142,7 @@ public class ReorderService {
                 .map(transaction -> BigDecimal.valueOf(transaction.getQuantity()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         
-        BigDecimal averageDailySales = totalQuantity.divide(BigDecimal.valueOf(30), 2, RoundingMode.HALF_UP);
+        BigDecimal averageDailySales = totalQuantity.divide(BigDecimal.valueOf(AVG_WINDOW_DAYS), PERCENT_SCALE, ROUNDING_MODE);
 
         // Calculate Seasonality Factor based on weekday vs weekend sales patterns
         // SeasonalityFactor = (WeekdayCount × 0.8 + WeekendCount × 1.4) / 7
@@ -140,13 +156,13 @@ public class ReorderService {
         long weekendCount = sales.size() - weekdayCount;
         
         // Apply the seasonality formula: (WeekdayCount × 0.8 + WeekendCount × 1.4) / 7
-        BigDecimal weekdayFactor = BigDecimal.valueOf(weekdayCount).multiply(BigDecimal.valueOf(0.8));
-        BigDecimal weekendFactor = BigDecimal.valueOf(weekendCount).multiply(BigDecimal.valueOf(1.4));
-        BigDecimal seasonalityFactor = weekdayFactor.add(weekendFactor).divide(BigDecimal.valueOf(7), 2, RoundingMode.HALF_UP);
+        BigDecimal weekdayFactor = BigDecimal.valueOf(weekdayCount).multiply(WEEKDAY_MULTIPLIER);
+        BigDecimal weekendFactor = BigDecimal.valueOf(weekendCount).multiply(WEEKEND_MULTIPLIER);
+        BigDecimal seasonalityFactor = weekdayFactor.add(weekendFactor).divide(DAYS_IN_WEEK, PERCENT_SCALE, ROUNDING_MODE);
         
         // Ensure seasonality factor is at least 0.1 to avoid zero calculations
-        if (seasonalityFactor.compareTo(BigDecimal.valueOf(0.1)) < 0) {
-            seasonalityFactor = BigDecimal.valueOf(0.1);
+        if (seasonalityFactor.compareTo(MIN_SEASONALITY) < 0) {
+            seasonalityFactor = MIN_SEASONALITY;
         }
         
         log.debug("Seasonality calculation for {}: weekdayCount={}, weekendCount={}, seasonalityFactor={}", 
@@ -156,10 +172,10 @@ public class ReorderService {
         BigDecimal adjustedSales = averageDailySales.multiply(seasonalityFactor);
 
         // Calculate Safety Stock (assuming 2 days of safety stock)
-        Integer safetyStock = adjustedSales.multiply(BigDecimal.valueOf(2)).intValue();
+        Integer safetyStock = adjustedSales.multiply(BigDecimal.valueOf(SAFETY_STOCK_DAYS)).intValue();
 
         // Calculate Reorder Point
-        Integer reorderPoint = adjustedSales.multiply(BigDecimal.valueOf(7)).intValue() + safetyStock; // 7 days lead time
+        Integer reorderPoint = adjustedSales.multiply(BigDecimal.valueOf(LEAD_TIME_DAYS)).intValue() + safetyStock; // lead time days
 
         // Calculate Recommended Quantity
         Integer currentStock = inventory.getCurrentStock();
@@ -184,7 +200,7 @@ public class ReorderService {
         }
 
         // Apply business rules: round up to nearest 10
-        reorderQty = ((reorderQty + 9) / 10) * 10;
+        reorderQty = ((reorderQty + (ROUND_TO_NEAREST_STANDARD - 1)) / ROUND_TO_NEAREST_STANDARD) * ROUND_TO_NEAREST_STANDARD;
 
         // Check against Max Storage Quantity
         if (product.getMaxStorageQty() != null) {
@@ -224,15 +240,15 @@ public class ReorderService {
         Integer currentStock = inventory.getCurrentStock();
         
         // Use minimum stock as baseline, or default to 10 if not set
-        Integer minStock = product.getMinStorageQty() != null ? product.getMinStorageQty() : 10;
+        Integer minStock = product.getMinStorageQty() != null ? product.getMinStorageQty() : BASIC_MIN_STOCK_FALLBACK;
         
         // Basic recommendation: order enough to reach 50% of max storage or 3x min stock, whichever is smaller
         Integer maxStock = product.getMaxStorageQty() != null ? product.getMaxStorageQty() : 100;
-        Integer targetStock = Math.min(maxStock / 2, minStock * 3);
+        Integer targetStock = Math.min(maxStock / BASIC_TARGET_DIVISOR, minStock * BASIC_MULTIPLIER_MIN_STOCK);
         Integer reorderQty = Math.max(targetStock - currentStock, minStock);
         
         // Round up to nearest 5 for basic recommendations
-        reorderQty = ((reorderQty + 4) / 5) * 5;
+        reorderQty = ((reorderQty + (BASIC_ROUND_TO_NEAREST - 1)) / BASIC_ROUND_TO_NEAREST) * BASIC_ROUND_TO_NEAREST;
         
         // Ensure we don't exceed max storage
         if (product.getMaxStorageQty() != null) {
