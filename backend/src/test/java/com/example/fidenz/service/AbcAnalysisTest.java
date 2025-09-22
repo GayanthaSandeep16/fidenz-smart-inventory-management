@@ -179,6 +179,54 @@ class AbcAnalysisTest {
         assertEquals("C", svc.determineCategory(AbcAnalysisService.CATEGORY_B_THRESHOLD.add(new BigDecimal("1"))));
     }
 
+    @Test
+    void groupByCategory_handlesNullAndEmpty() {
+        AbcAnalysisService svc = abcAnalysisService;
+        assertTrue(svc.groupByCategory(null).isEmpty());
+        assertTrue(svc.groupByCategory(new ArrayList<>()).isEmpty());
+    }
+
+    @Test
+    void groupByCategory_groupsCorrectly() {
+        AbcAnalysisService svc = abcAnalysisService;
+        var list = new ArrayList<AbcAnalysisResult>();
+        list.add(AbcAnalysisResult.builder().product(testProduct).totalRevenue(BigDecimal.ONE).percentageOfTotal(BigDecimal.ONE).cumulativePercentage(BigDecimal.ONE).category("A").build());
+        list.add(AbcAnalysisResult.builder().product(testProduct).totalRevenue(BigDecimal.ONE).percentageOfTotal(BigDecimal.ONE).cumulativePercentage(BigDecimal.ONE).category("B").build());
+        list.add(AbcAnalysisResult.builder().product(testProduct).totalRevenue(BigDecimal.ONE).percentageOfTotal(BigDecimal.ONE).cumulativePercentage(BigDecimal.ONE).category("A").build());
+
+        var grouped = svc.groupByCategory(list);
+        assertEquals(2, grouped.get("A").size());
+        assertEquals(1, grouped.get("B").size());
+    }
+
+    @Test
+    void summarizeByCategory_handlesNullAndEmpty() {
+        AbcAnalysisService svc = abcAnalysisService;
+        var summaryNull = svc.summarizeByCategory(null);
+        assertEquals(0L, summaryNull.get("A"));
+        assertEquals(0L, summaryNull.get("B"));
+        assertEquals(0L, summaryNull.get("C"));
+
+        var summaryEmpty = svc.summarizeByCategory(new ArrayList<>());
+        assertEquals(0L, summaryEmpty.get("A"));
+        assertEquals(0L, summaryEmpty.get("B"));
+        assertEquals(0L, summaryEmpty.get("C"));
+    }
+
+    @Test
+    void summarizeByCategory_countsCorrectly() {
+        AbcAnalysisService svc = abcAnalysisService;
+        var list = new ArrayList<AbcAnalysisResult>();
+        list.add(AbcAnalysisResult.builder().product(testProduct).totalRevenue(BigDecimal.ONE).percentageOfTotal(BigDecimal.ONE).cumulativePercentage(BigDecimal.ONE).category("A").build());
+        list.add(AbcAnalysisResult.builder().product(testProduct).totalRevenue(BigDecimal.ONE).percentageOfTotal(BigDecimal.ONE).cumulativePercentage(BigDecimal.ONE).category("B").build());
+        list.add(AbcAnalysisResult.builder().product(testProduct).totalRevenue(BigDecimal.ONE).percentageOfTotal(BigDecimal.ONE).cumulativePercentage(BigDecimal.ONE).category("A").build());
+
+        var summary = svc.summarizeByCategory(list);
+        assertEquals(2L, summary.get("A"));
+        assertEquals(1L, summary.get("B"));
+        assertEquals(0L, summary.get("C"));
+    }
+
     // Helper method to create test data
     private List<SalesTransaction> createTestTransactions(int count) {
         List<SalesTransaction> transactions = new ArrayList<>();

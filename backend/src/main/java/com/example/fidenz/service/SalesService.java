@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.fidenz.util.InventoryUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -57,20 +58,21 @@ public class SalesService {
         // Calculate total amount
         BigDecimal totalAmount = request.unitPrice().multiply(BigDecimal.valueOf(request.quantity()));
 
-        // Create sales transaction
-        SalesTransaction transaction = new SalesTransaction();
-        transaction.setProduct(product);
-        transaction.setStore(store);
-        transaction.setQuantity(request.quantity());
-        transaction.setUnitPrice(request.unitPrice());
-        transaction.setTotalAmount(totalAmount);
-        transaction.setTransactionDate(LocalDateTime.now());
+
+        SalesTransaction transaction = SalesTransaction.builder()
+                .product(product)
+                .store(store)
+                .quantity(request.quantity())
+                .unitPrice(request.unitPrice())
+                .totalAmount(totalAmount)
+                .transactionDate(LocalDateTime.now())
+                .build();
 
         // Save transaction
         SalesTransaction savedTransaction = salesTransactionRepository.save(transaction);
 
-        // Update inventory
-        inventory.setCurrentStock(inventory.getCurrentStock() - request.quantity());
+        // Update inventory using util helper
+        inventory.setCurrentStock(InventoryUtils.decrementStock(inventory.getCurrentStock(), request.quantity()));
         inventoryRepository.save(inventory);
 
         return savedTransaction;

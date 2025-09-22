@@ -181,4 +181,49 @@ class ReorderServiceTest {
         assertTrue(mockRecommendation.getProcessed());
         verify(reorderRecommendationRepository).save(mockRecommendation);
     }
+
+    @Test
+    void isLowStock_handlesNullCurrentStock() {
+        assertFalse(reorderService.isLowStock(null, 10));
+    }
+
+    @Test
+    void isLowStock_detectsZeroStock() {
+        assertTrue(reorderService.isLowStock(0, 10));
+    }
+
+    @Test
+    void isLowStock_detectsBelowAndEqualMin() {
+        assertTrue(reorderService.isLowStock(5, 10));
+        assertTrue(reorderService.isLowStock(10, 10));
+    }
+
+    @Test
+    void isLowStock_handlesAboveMinAndNullMin() {
+        assertFalse(reorderService.isLowStock(11, 10));
+        assertFalse(reorderService.isLowStock(5, null));
+    }
+
+    @Test
+    void handleNoReorderNeeded_createsBasicRecommendationWhenLowStock() {
+        // Given
+        testInventory.setCurrentStock(3); // below LOW_STOCK_THRESHOLD
+        // When
+        ReorderRecommendation rec = reorderService.handleNoReorderNeeded(testInventory, 3, 50);
+        // Then
+        assertNotNull(rec);
+        assertEquals(testProduct, rec.getProduct());
+        assertEquals(testStore, rec.getStore());
+        assertFalse(rec.getProcessed());
+    }
+
+    @Test
+    void handleNoReorderNeeded_returnsNullWhenNotLowStock() {
+        // Given
+        testInventory.setCurrentStock(20);
+        // When
+        ReorderRecommendation rec = reorderService.handleNoReorderNeeded(testInventory, 20, 10);
+        // Then
+        assertNull(rec);
+    }
 }
