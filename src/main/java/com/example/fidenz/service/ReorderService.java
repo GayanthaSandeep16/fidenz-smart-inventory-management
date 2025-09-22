@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.fidenz.util.InventoryUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -37,6 +38,7 @@ public class ReorderService {
     static final int BASIC_MULTIPLIER_MIN_STOCK = 3;
     static final int BASIC_MIN_STOCK_FALLBACK = 10;
     static final int BASIC_ROUND_TO_NEAREST = 5;
+    static final int LOW_STOCK_THRESHOLD = 5;
 
     private final InventoryRepository inventoryRepository;
     private final SalesTransactionRepository salesTransactionRepository;
@@ -79,18 +81,8 @@ public class ReorderService {
                             .findByProductAndStore(inventory.getProduct(), store);
                     
                     if (existing.isPresent()) {
-                        // Update existing recommendation
-                        ReorderRecommendation existingRec = existing.get();
-                        existingRec.setCurrentStock(recommendation.getCurrentStock());
-                        existingRec.setAverageDailySales(recommendation.getAverageDailySales());
-                        existingRec.setSeasonalityFactor(recommendation.getSeasonalityFactor());
-                        existingRec.setAdjustedSales(recommendation.getAdjustedSales());
-                        existingRec.setSafetyStock(recommendation.getSafetyStock());
-                        existingRec.setReorderPoint(recommendation.getReorderPoint());
-                        existingRec.setRecommendedQuantity(recommendation.getRecommendedQuantity());
-                        existingRec.setProcessed(false);
-                        reorderRecommendationRepository.save(existingRec);
-                        recommendations.add(existingRec);
+                        ReorderRecommendation updated = updateExistingRecommendation(existing.get(), recommendation);
+                        recommendations.add(updated);
                     } else {
                         // Create new recommendation
                         reorderRecommendationRepository.save(recommendation);
@@ -105,6 +97,18 @@ public class ReorderService {
 
         log.info("Generated {} reorder recommendations for store: {}", recommendations.size(), storeId);
         return recommendations;
+    }
+
+    private ReorderRecommendation updateExistingRecommendation(ReorderRecommendation existing, ReorderRecommendation source) {
+        existing.setCurrentStock(source.getCurrentStock());
+        existing.setAverageDailySales(source.getAverageDailySales());
+        existing.setSeasonalityFactor(source.getSeasonalityFactor());
+        existing.setAdjustedSales(source.getAdjustedSales());
+        existing.setSafetyStock(source.getSafetyStock());
+        existing.setReorderPoint(source.getReorderPoint());
+        existing.setRecommendedQuantity(source.getRecommendedQuantity());
+        existing.setProcessed(false);
+        return reorderRecommendationRepository.save(existing);
     }
 
     private ReorderRecommendation calculateReorderRecommendation(Inventory inventory) {
@@ -128,7 +132,7 @@ public class ReorderService {
             Integer currentStock = inventory.getCurrentStock();
             Integer minStock = product.getMinStorageQty();
             
-            if (currentStock == 0 || (minStock != null && currentStock <= minStock)) {
+            if (isLowStock(currentStock, minStock)) {
                 log.info("Creating basic reorder recommendation for low-stock product {} in store {} (currentStock: {}, minStock: {})", 
                          product.getName(), store.getId(), currentStock, minStock);
                 return createBasicReorderRecommendation(inventory);
@@ -138,20 +142,13 @@ public class ReorderService {
         }
 
         // Calculate Average Daily Sales
-        BigDecimal totalQuantity = sales.stream()
-                .map(transaction -> BigDecimal.valueOf(transaction.getQuantity()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalQuantity = calculateTotalQuantity(sales);
         
         BigDecimal averageDailySales = totalQuantity.divide(BigDecimal.valueOf(AVG_WINDOW_DAYS), PERCENT_SCALE, ROUNDING_MODE);
 
         // Calculate Seasonality Factor based on weekday vs weekend sales patterns
         // SeasonalityFactor = (WeekdayCount × 0.8 + WeekendCount × 1.4) / 7
-        long weekdayCount = sales.stream()
-                .mapToLong(transaction -> {
-                    DayOfWeek dayOfWeek = transaction.getTransactionDate().getDayOfWeek();
-                    return (dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY) ? 0 : 1;
-                })
-                .sum();
+        long weekdayCount = countWeekdayTransactions(sales);
         
         long weekendCount = sales.size() - weekdayCount;
         
@@ -185,18 +182,7 @@ public class ReorderService {
                  product.getName(), averageDailySales, seasonalityFactor, adjustedSales, safetyStock, reorderPoint, currentStock, reorderQty);
 
         if (reorderQty <= 0) {
-            log.debug("Standard reorder calculation shows no need for product {} in store {}. Current stock: {}, Reorder point: {}", 
-                     product.getName(), store.getId(), currentStock, reorderPoint);
-            
-            // Check if this is a low-stock situation that still needs attention
-            Integer minStock = product.getMinStorageQty();
-            if (currentStock <= 5 || (minStock != null && currentStock <= minStock)) {
-                log.info("Low stock detected for product {} in store {} (currentStock: {}, minStock: {}). Creating basic recommendation.", 
-                         product.getName(), store.getId(), currentStock, minStock);
-                return createBasicReorderRecommendation(inventory);
-            }
-            
-            return null;
+            return handleNoReorderNeeded(inventory, currentStock, reorderPoint);
         }
 
         // Apply business rules: round up to nearest 10
@@ -215,19 +201,64 @@ public class ReorderService {
         }
 
         // Create recommendation
-        ReorderRecommendation recommendation = new ReorderRecommendation();
-        recommendation.setProduct(product);
-        recommendation.setStore(store);
-        recommendation.setCurrentStock(currentStock);
-        recommendation.setAverageDailySales(averageDailySales);
-        recommendation.setSeasonalityFactor(seasonalityFactor);
-        recommendation.setAdjustedSales(adjustedSales);
-        recommendation.setSafetyStock(safetyStock);
-        recommendation.setReorderPoint(reorderPoint);
-        recommendation.setRecommendedQuantity(reorderQty);
-        recommendation.setProcessed(false);
+        return ReorderRecommendation.builder()
+                .product(product)
+                .store(store)
+                .currentStock(currentStock)
+                .averageDailySales(averageDailySales)
+                .seasonalityFactor(seasonalityFactor)
+                .adjustedSales(adjustedSales)
+                .safetyStock(safetyStock)
+                .reorderPoint(reorderPoint)
+                .recommendedQuantity(reorderQty)
+                .processed(false)
+                .build();
+    }
 
-        return recommendation;
+    // Handles the scenario where calculated reorder quantity is not positive
+    ReorderRecommendation handleNoReorderNeeded(Inventory inventory, Integer currentStock, Integer reorderPoint) {
+        Product product = inventory.getProduct();
+        Store store = inventory.getStore();
+        log.debug("Standard reorder calculation shows no need for product {} in store {}. Current stock: {}, Reorder point: {}",
+                product.getName(), store.getId(), currentStock, reorderPoint);
+
+        Integer minStock = product.getMinStorageQty();
+        if ((currentStock != null && currentStock <= LOW_STOCK_THRESHOLD) || isLowStock(currentStock, minStock)) {
+            log.info("Low stock detected for product {} in store {} (currentStock: {}, minStock: {}). Creating basic recommendation.",
+                    product.getName(), store.getId(), currentStock, minStock);
+            return createBasicReorderRecommendation(inventory);
+        }
+        return null;
+    }
+
+    BigDecimal calculateTotalQuantity(List<SalesTransaction> sales) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (SalesTransaction transaction : sales) {
+            total = total.add(BigDecimal.valueOf(transaction.getQuantity()));
+        }
+        return total;
+    }
+
+    long countWeekdayTransactions(List<SalesTransaction> sales) {
+        long count = 0;
+        for (SalesTransaction transaction : sales) {
+            DayOfWeek dayOfWeek = transaction.getTransactionDate().getDayOfWeek();
+            if (!(dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    // Determines if inventory is considered low based on current and minimum stock
+    boolean isLowStock(Integer currentStock, Integer minStock) {
+        if (currentStock == null) {
+            return false;
+        }
+        if (currentStock == 0) {
+            return true;
+        }
+        return minStock != null && currentStock <= minStock;
     }
 
     /**
@@ -244,7 +275,7 @@ public class ReorderService {
         
         // Basic recommendation: order enough to reach 50% of max storage or 3x min stock, whichever is smaller
         Integer maxStock = product.getMaxStorageQty() != null ? product.getMaxStorageQty() : 100;
-        Integer targetStock = Math.min(maxStock / BASIC_TARGET_DIVISOR, minStock * BASIC_MULTIPLIER_MIN_STOCK);
+        Integer targetStock = InventoryUtils.calculateTargetStock(maxStock, minStock);
         Integer reorderQty = Math.max(targetStock - currentStock, minStock);
         
         // Round up to nearest 5 for basic recommendations
@@ -261,21 +292,21 @@ public class ReorderService {
         }
         
         // Create basic recommendation with default values
-        ReorderRecommendation recommendation = new ReorderRecommendation();
-        recommendation.setProduct(product);
-        recommendation.setStore(store);
-        recommendation.setCurrentStock(currentStock);
-        recommendation.setAverageDailySales(BigDecimal.ONE);
-        recommendation.setSeasonalityFactor(BigDecimal.ONE);
-        recommendation.setAdjustedSales(BigDecimal.ONE);
-        recommendation.setSafetyStock(minStock); // Use min stock as safety stock
-        recommendation.setReorderPoint(minStock * 2); // Simple reorder point
-        recommendation.setRecommendedQuantity(reorderQty);
-        recommendation.setProcessed(false);
-        
-        log.info("Created basic reorder recommendation for {} in store {}: {} units", 
-                 product.getName(), store.getId(), reorderQty);
-        
+        ReorderRecommendation recommendation = ReorderRecommendation.builder()
+                .product(product)
+                .store(store)
+                .currentStock(currentStock)
+                .averageDailySales(BigDecimal.ONE)
+                .seasonalityFactor(BigDecimal.ONE)
+                .adjustedSales(BigDecimal.ONE)
+                .safetyStock(minStock)
+                .reorderPoint(minStock * 2)
+                .recommendedQuantity(reorderQty)
+                .processed(false)
+                .build();
+
+        log.info("Created basic reorder recommendation for {} in store {}: {} units",
+                product.getName(), store.getId(), reorderQty);
         return recommendation;
     }
 

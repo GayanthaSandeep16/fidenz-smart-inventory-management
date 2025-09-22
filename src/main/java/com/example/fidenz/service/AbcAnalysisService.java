@@ -143,13 +143,13 @@ public class AbcAnalysisService {
 
             String category = determineCategory(cumulativePercentage);
 
-            AbcAnalysisResult result = new AbcAnalysisResult(
-                    product,
-                    revenue,
-                    percentageOfTotal,
-                    cumulativePercentage,
-                    category
-            );
+            AbcAnalysisResult result = AbcAnalysisResult.builder()
+                    .product(product)
+                    .totalRevenue(revenue)
+                    .percentageOfTotal(percentageOfTotal)
+                    .cumulativePercentage(cumulativePercentage)
+                    .category(category)
+                    .build();
             results.add(result);
         }
         return results;
@@ -167,19 +167,36 @@ public class AbcAnalysisService {
 
     public Map<String, List<AbcAnalysisResult>> getAbcAnalysisByCategory(Long storeId, int days) {
         List<AbcAnalysisResult> results = performAbcAnalysis(storeId, days);
-        
-        return results.stream()
-                .collect(Collectors.groupingBy(AbcAnalysisResult::category));
+        return groupByCategory(results);
     }
 
     public Map<String, Long> getAbcAnalysisSummary(Long storeId, int days) {
         List<AbcAnalysisResult> results = performAbcAnalysis(storeId, days);
-        
+        return summarizeByCategory(results);
+    }
+
+    // Null-safe grouping helper accepting precomputed results
+    Map<String, List<AbcAnalysisResult>> groupByCategory(List<AbcAnalysisResult> results) {
+        if (results == null || results.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return results.stream().collect(Collectors.groupingBy(AbcAnalysisResult::category));
+    }
+
+    // Null-safe summary helper accepting precomputed results
+    Map<String, Long> summarizeByCategory(List<AbcAnalysisResult> results) {
         Map<String, Long> summary = new HashMap<>();
+        summary.put("A", 0L);
+        summary.put("B", 0L);
+        summary.put("C", 0L);
+
+        if (results == null || results.isEmpty()) {
+            return summary;
+        }
+
         summary.put("A", results.stream().filter(r -> "A".equals(r.category())).count());
         summary.put("B", results.stream().filter(r -> "B".equals(r.category())).count());
         summary.put("C", results.stream().filter(r -> "C".equals(r.category())).count());
-        
         return summary;
     }
 }
