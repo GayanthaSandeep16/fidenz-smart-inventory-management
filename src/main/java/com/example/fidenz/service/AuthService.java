@@ -3,6 +3,7 @@ package com.example.fidenz.service;
 import com.example.fidenz.dto.AuthRequest;
 import com.example.fidenz.dto.AuthResponse;
 import com.example.fidenz.entity.User;
+import com.example.fidenz.exception.EntityNotFoundException;
 import com.example.fidenz.repository.UserRepository;
 import com.example.fidenz.security.JwtUtil;
 import org.slf4j.Logger;
@@ -37,7 +38,7 @@ public class AuthService {
         String token = jwtUtil.generateToken(userDetails.getUsername());
         
         User user = userRepository.findByUsername(authRequest.username())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
 
         return new AuthResponse(token, user.getUsername(), user.getRole().name());
     }

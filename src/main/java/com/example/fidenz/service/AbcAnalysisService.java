@@ -4,6 +4,7 @@ import com.example.fidenz.dto.AbcAnalysisResult;
 import com.example.fidenz.entity.Product;
 import com.example.fidenz.entity.SalesTransaction;
 import com.example.fidenz.entity.Store;
+import com.example.fidenz.exception.EntityNotFoundException;
 import com.example.fidenz.repository.SalesTransactionRepository;
 import com.example.fidenz.repository.StoreRepository;
 import org.slf4j.Logger;
@@ -40,7 +41,7 @@ public class AbcAnalysisService {
         log.info("Performing ABC analysis for store: {} for the last {} days", storeId, days);
         
         Store store = storeRepository.findById(storeId)
-                .orElseThrow(() -> new RuntimeException("Store not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Store not found"));
 
         // Get sales data for the specified period
         LocalDateTime endDate = LocalDateTime.now();
