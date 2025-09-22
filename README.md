@@ -95,7 +95,7 @@ View all APIs: http://localhost:8080/swagger-ui.html
 
 ## Requirements
 
-- Java 17 or higher
+- Java 17
 - MySQL database
 - Node.js (for frontend)
 

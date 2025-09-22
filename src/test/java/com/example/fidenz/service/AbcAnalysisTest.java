@@ -1,0 +1,136 @@
+package com.example.fidenz.service;
+
+import com.example.fidenz.dto.AbcAnalysisResult;
+import com.example.fidenz.entity.Product;
+import com.example.fidenz.entity.SalesTransaction;
+import com.example.fidenz.entity.Store;
+import com.example.fidenz.repository.SalesTransactionRepository;
+import com.example.fidenz.repository.StoreRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class AbcAnalysisTest {
+
+    @Mock
+    private SalesTransactionRepository salesTransactionRepository;
+    
+    @Mock
+    private StoreRepository storeRepository;
+
+    @InjectMocks
+    private AbcAnalysisService abcAnalysisService;
+
+    private Store testStore;
+    private Product testProduct;
+
+    @BeforeEach
+    void setUp() {
+        testStore = new Store();
+        testStore.setId(1L);
+        testStore.setName("Test Store");
+
+        testProduct = new Product();
+        testProduct.setId(1L);
+        testProduct.setName("Test Product");
+        testProduct.setUnitPrice(new BigDecimal("100.00"));
+        testProduct.setCategory("Electronics");
+    }
+
+    @Test
+    void testPerformAbcAnalysis_WithValidData() {
+        // Given
+        Long storeId = 1L;
+        int days = 30;
+        List<SalesTransaction> transactions = createTestTransactions(5);
+
+        when(storeRepository.findById(storeId)).thenReturn(Optional.of(testStore));
+        when(salesTransactionRepository.findByStoreIdAndTransactionDateBetween(eq(storeId), any(), any()))
+                .thenReturn(transactions);
+
+        // When
+        List<AbcAnalysisResult> results = abcAnalysisService.performAbcAnalysis(storeId, days);
+
+        // Then
+        assertNotNull(results);
+        verify(storeRepository).findById(storeId);
+        verify(salesTransactionRepository).findByStoreIdAndTransactionDateBetween(eq(storeId), any(), any());
+    }
+
+    @Test
+    void testPerformAbcAnalysis_EmptyData() {
+        // Given
+        Long storeId = 1L;
+        List<SalesTransaction> emptyTransactions = new ArrayList<>();
+
+        when(storeRepository.findById(storeId)).thenReturn(Optional.of(testStore));
+        when(salesTransactionRepository.findByStoreIdAndTransactionDateBetween(eq(storeId), any(), any()))
+                .thenReturn(emptyTransactions);
+
+        // When
+        List<AbcAnalysisResult> results = abcAnalysisService.performAbcAnalysis(storeId, 30);
+
+        // Then
+        assertNotNull(results);
+        assertTrue(results.isEmpty());
+        verify(storeRepository).findById(storeId);
+        verify(salesTransactionRepository).findByStoreIdAndTransactionDateBetween(eq(storeId), any(), any());
+    }
+
+    @Test
+    void testAbcAnalysisResultStructure() {
+        // Given
+        Long storeId = 1L;
+        List<SalesTransaction> transactions = createTestTransactions(3);
+
+        when(storeRepository.findById(storeId)).thenReturn(Optional.of(testStore));
+        when(salesTransactionRepository.findByStoreIdAndTransactionDateBetween(eq(storeId), any(), any()))
+                .thenReturn(transactions);
+
+        // When
+        List<AbcAnalysisResult> results = abcAnalysisService.performAbcAnalysis(storeId, 30);
+
+        // Then
+        assertNotNull(results);
+        if (!results.isEmpty()) {
+            AbcAnalysisResult result = results.get(0);
+            assertNotNull(result.product());
+            assertNotNull(result.totalRevenue());
+            assertNotNull(result.category());
+            assertTrue(result.totalRevenue().compareTo(BigDecimal.ZERO) >= 0);
+            assertTrue(result.percentageOfTotal().compareTo(BigDecimal.ZERO) >= 0);
+            assertTrue(result.cumulativePercentage().compareTo(BigDecimal.ZERO) >= 0);
+        }
+    }
+
+    // Helper method to create test data
+    private List<SalesTransaction> createTestTransactions(int count) {
+        List<SalesTransaction> transactions = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            SalesTransaction transaction = new SalesTransaction();
+            transaction.setId((long) i);
+            transaction.setProduct(testProduct);
+            transaction.setStore(testStore);
+            transaction.setQuantity(2);
+            transaction.setUnitPrice(testProduct.getUnitPrice());
+            transaction.setTotalAmount(testProduct.getUnitPrice().multiply(new BigDecimal("2")));
+            transaction.setTransactionDate(LocalDateTime.now().minusDays(i));
+            transactions.add(transaction);
+        }
+        return transactions;
+    }
+}
