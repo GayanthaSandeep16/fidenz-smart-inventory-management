@@ -3,6 +3,7 @@ package com.example.fidenz.entity;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+import jakarta.persistence.Index;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -18,7 +19,12 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "sales_transactions")
+@Table(name = "sales_transactions",
+       indexes = {
+           @Index(name = "idx_sales_transactions_store_id", columnList = "store_id"),
+           @Index(name = "idx_sales_transactions_product_id", columnList = "product_id"),
+           @Index(name = "idx_sales_transactions_store_date", columnList = "store_id, transaction_date")
+       })
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @ToString(exclude = {"product", "store"})
 public class SalesTransaction {

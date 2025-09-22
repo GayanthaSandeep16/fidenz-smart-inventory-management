@@ -59,6 +59,10 @@ CREATE TABLE inventory (
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
+-- Indexes for inventory
+CREATE INDEX idx_inventory_product_id ON inventory(product_id);
+CREATE INDEX idx_inventory_store_id ON inventory(store_id);
+
 -- Create Sales Transactions table
 CREATE TABLE sales_transactions (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -73,6 +77,11 @@ CREATE TABLE sales_transactions (
     FOREIGN KEY (store_id) REFERENCES stores(id),
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
+
+-- Indexes for sales_transactions
+CREATE INDEX idx_sales_transactions_store_id ON sales_transactions(store_id);
+CREATE INDEX idx_sales_transactions_product_id ON sales_transactions(product_id);
+CREATE INDEX idx_sales_transactions_store_date ON sales_transactions(store_id, transaction_date);
 
 -- Create Reorder Recommendations table
 CREATE TABLE reorder_recommendations (
@@ -93,3 +102,8 @@ CREATE TABLE reorder_recommendations (
     FOREIGN KEY (store_id) REFERENCES stores(id),
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
+
+-- Indexes for reorder_recommendations
+CREATE INDEX idx_reorder_store_id ON reorder_recommendations(store_id);
+CREATE INDEX idx_reorder_product_id ON reorder_recommendations(product_id);
+CREATE INDEX idx_reorder_store_processed ON reorder_recommendations(store_id, is_processed);

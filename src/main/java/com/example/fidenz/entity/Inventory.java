@@ -2,6 +2,7 @@ package com.example.fidenz.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import jakarta.persistence.Index;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -15,7 +16,11 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Entity
 @Table(name = "inventory",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"product_id", "store_id"}))
+       uniqueConstraints = @UniqueConstraint(columnNames = {"product_id", "store_id"}),
+       indexes = {
+           @Index(name = "idx_inventory_product_id", columnList = "product_id"),
+           @Index(name = "idx_inventory_store_id", columnList = "store_id")
+       })
 @ToString(exclude = {"product", "store"})
 public class Inventory {
     

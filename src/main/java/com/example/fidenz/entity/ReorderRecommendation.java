@@ -2,6 +2,7 @@ package com.example.fidenz.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import jakarta.persistence.Index;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -15,7 +16,12 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "reorder_recommendations")
+@Table(name = "reorder_recommendations",
+       indexes = {
+           @Index(name = "idx_reorder_store_id", columnList = "store_id"),
+           @Index(name = "idx_reorder_product_id", columnList = "product_id"),
+           @Index(name = "idx_reorder_store_processed", columnList = "store_id, is_processed")
+       })
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @ToString(exclude = {"product", "store"})
 public class ReorderRecommendation {
